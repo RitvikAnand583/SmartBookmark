@@ -58,7 +58,7 @@ return (
 
         <button
         onClick={() => onDelete(bookmark.id)}
-        className="ml-3 px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-300 rounded-full hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors cursor-pointer shrink-0"
+        className="ml-3 px-3 py-1.5 text-xs font-medium text-slate-500 border border-slate-300 rounded-full hover:text-red-600 ransition-colors cursor-pointer shrink-0"
         >
         Delete
         </button>
