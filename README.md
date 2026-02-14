@@ -86,15 +86,62 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-## Deploy to Vercel
 
-1. Push code to GitHub
-2. Go to [vercel.com](https://vercel.com) and import your repository
-3. Add environment variables: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. Deploy
-5. After deployment, add the Vercel URL to:
-   - Google Cloud Console > OAuth > Authorized redirect URIs
-   - Supabase Dashboard > Authentication > URL Configuration > Redirect URLs: `https://your-app.vercel.app/auth/callback`
+## Problems I Ran Into & How I Solved Them
+
+### 1. Real-time Sync Not Working with postgres_changes
+
+**Problem:** I initially used Supabase's `postgres_changes` to listen for INSERT and DELETE events on the `bookmarks` table. The subscription status showed `SUBSCRIBED` successfully, but no events were ever delivered to other tabs. I tried multiple fixes — removing the filter parameter, setting `REPLICA IDENTITY FULL` on the table, and filtering client-side — but none worked.
+
+```ts
+supabase
+  .channel("bookmarks")
+  .on(
+    "postgres_changes",
+    { event: "*", schema: "public", table: "bookmarks" },
+    (payload) => {
+    }
+  )
+  .subscribe();
+```
+
+**Solution:** Switched from `postgres_changes` to Supabase **Broadcast channels**. Instead of relying on the database to push change events, the client that performs the DB operation explicitly broadcasts the event to other tabs. The channel is configured with `self: false` so the sender doesn't receive its own event.
+
+```ts
+const channel = supabase.channel("bookmarks-sync", {
+  config: { broadcast: { self: false } },
+});
+
+channel
+  .on("broadcast", { event: "bookmark-added" }, ({ payload }) => {
+  })
+  .on("broadcast", { event: "bookmark-deleted" }, ({ payload }) => {
+  })
+  .subscribe();
+
+await channel.send({
+  type: "broadcast",
+  event: "bookmark-added",
+  payload: { bookmark: data },
+});
+```
+
+I also added a `visibilitychange` listener as a safety net — when a user switches back to a tab, it refetches all bookmarks from the database to ensure consistency.
+
+### 2. Duplicate Bookmarks Appearing
+
+**Problem:** When a user added a bookmark, it appeared twice in the list momentarily — once from the optimistic local state update (added immediately for fast UI), and once from the Broadcast event received on the same client before `self: false` was configured correctly during testing.
+
+**Solution:** Added deduplication logic inside the `setBookmarks` state updater. Before adding a bookmark from any source (local insert or broadcast event), I check if a bookmark with the same `id` already exists in state:
+
+```ts
+setBookmarks((prev) => {
+  if (prev.some((b) => b.id === data.id)) return prev; 
+  return [data, ...prev];
+});
+```
+
+This check runs both when adding from the local DB insert response and when receiving a broadcast event, so duplicates are prevented regardless of timing.
 
 ## License
 
