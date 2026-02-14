@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import LogoutButton from "@/components/LogoutButton";
+import BookmarkManager from "@/components/BookmarkManager";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -38,9 +39,7 @@ export default async function DashboardPage() {
             </div>
         </header>
         <main className="max-w-4xl mx-auto px-4 py-10">
-            <p className="text-slate-500 text-center">
-            
-            </p>
+            <BookmarkManager />
         </main>
         </div>
     );
